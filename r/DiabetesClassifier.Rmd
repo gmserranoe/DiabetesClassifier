@@ -1,0 +1,122 @@
+---
+title: "Diabetes Classifier"
+output: html_notebook
+---
+
+#### Link to repository: https://archive.ics.uci.edu/ml/datasets/Early+stage+diabetes+risk+prediction+dataset
+
+```{r}
+# Load the dataset "diabetes_data_upload.csv"
+Diabetes <- read.csv("~/Documents/github.git/DiabetesClassifier/data/diabetes_data_upload.csv", stringsAsFactors=TRUE)
+
+# DF Dimensions
+dim(Diabetes)
+
+# DF Summary 
+summary(Diabetes)
+
+# Have to check for N/A values (missing = FALSE in all instances)
+# (Note: in the report they state that they removed 20 instances from 500, we have all 520)
+missing = is.na(Diabetes) 
+```
+
+
+## Section I: Validation of classification models: Logistic Regression, Decision Tree, Random Forest
+```{r}
+# Load libraries
+library(boot)
+library(tree)
+library(randomForest)
+    
+# Set seed - generate same random numbers to reproduce results
+set.seed(821)  
+
+# Split data (80:20, training:testing)
+
+  # sample( ) function randomly picks 80% rows from the data set (sampling without replacement)
+  dt <- sort(sample(nrow(Diabetes), nrow(Diabetes)*.8))
+  # Creates the training dataset with row numbers stored in dt
+  train <- Diabetes[dt,] 
+  # Creates the testing dataset excluding the row numbers mentioned in dt
+  test <- Diabetes[-dt,] 
+```
+
+
+### Logistic Regression K-Fold CV (K=20)
+```{r}
+# Logistic Regression (Should we use whole dataset?)
+cv.log = rep(0,20)
+for (i in 1:20){
+  log.reg = glm(class~., data=Diabetes, family=binomial)
+  cv.log[i] = cv.glm(Diabetes, log.reg, K=20)$delta[1]
+}
+
+# Vector of errors, result from K-fold CV
+cv.log
+# Index of minimum error
+which.min(cv.log)
+# MSE
+mean(cv.log)
+```
+
+
+### Decision Tree K-Fold CV (K=20)
+```{r}
+# Decision Tree
+tree.fit = tree(class~., data=train)
+plot(tree.fit)
+text(tree.fit, pretty=0, cex=0.5)
+
+# Apply CV
+cv.tree <- cv.tree(tree.fit, K=20, FUN=prune.misclass)
+cv.tree
+
+# Index of tree with minimum error
+min.idx <- which.min(cv.tree$dev)
+min.idx
+# Number of leaves in that tree
+leaves <- cv.tree$size[min.idx]
+leaves
+# Count of misclassifications 
+miss.count <- cv.tree$dev[min.idx]
+miss.count
+# Misclassification rate
+miss.rate <- cv.tree$dev[min.idx] / length(Diabetes)
+miss.rate
+
+# Confusion matrix ?
+
+#Plot
+plot(cv.tree$size, cv.tree$dev, type="b")
+
+```
+
+### Random Forest K-Fold CV (K=20)
+Can deal with a large number of features and it helps to identify the important attributes
+```{r}
+# Random Forest
+diab.forest <- randomForest(class~., data=train, nodesize = 25, ntree = 200)
+
+# Prediction
+predict.forest <- predict(diab.forest, newdata = test)
+
+# Confusion matrix 
+table(test$class, predict.forest)
+
+?rfcv
+# K-fold CV
+cv.rf <- rfcv(train, train$class, cv.fold = 20, type = "classification", trees = 500, mtrysize = 10)
+
+# Error ?
+cv.rf$error.cv
+```
+
+## Best model: X
+```{r}
+
+# Training with whole data ?
+
+# Want to analyze best predictors for model
+
+```
+
