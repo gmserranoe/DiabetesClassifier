@@ -9,6 +9,9 @@ output: html_notebook
 # Load the dataset "diabetes_data_upload.csv"
 Diabetes <- read.csv("~/Documents/github.git/DiabetesClassifier/data/diabetes_data_upload.csv", stringsAsFactors=TRUE)
 
+# DF Names
+names(Diabetes)
+
 # DF Dimensions
 dim(Diabetes)
 
@@ -25,8 +28,10 @@ missing = is.na(Diabetes)
 ```{r}
 # Load libraries
 library(boot)
+library(caret)
 library(tree)
 library(randomForest)
+library(e1071)
     
 # Set seed - generate same random numbers to reproduce results
 set.seed(821)  
@@ -39,83 +44,109 @@ set.seed(821)
   train <- Diabetes[dt,] 
   # Creates the testing dataset excluding the row numbers mentioned in dt
   test <- Diabetes[-dt,] 
+  
+# Train control
+train_control <- trainControl(method = "cv", number = 20)
 ```
 
 
 ### Logistic Regression K-Fold CV (K=20)
+LR: a regression algorithm that predicts the value of a categorical variable. It finds the value of a variable that can only take two possible values (ex: pass or fail). Logistic regression finds the relationship between a categorical dependent variable and several independent variables. We can also state this as logistic regression finds the relationship between which class does a data object lies into and said object’s features. Not only does the algorithm find a class for an object, but it also gives justification and reasoning for that object to be in a specific class
 ```{r}
-# Logistic Regression (Should we use whole dataset?)
-cv.log = rep(0,20)
-for (i in 1:20){
-  log.reg = glm(class~., data=Diabetes, family=binomial)
-  cv.log[i] = cv.glm(Diabetes, log.reg, K=20)$delta[1]
-}
+# Logistic Regression
+cv.log <- train(class ~ ., data=train, trControl=train_control, method="glm", family=binomial())
 
-# Vector of errors, result from K-fold CV
-cv.log
-# Index of minimum error
-which.min(cv.log)
-# MSE
-mean(cv.log)
+# CV scores
+summary(cv.log)
+
+# Performance
+mod.log <- glm(class ~ ., data=train, family=binomial(link="logit"))
+pred.log <- predict(mod.log, newdata=test, type = "response")
+
+# Prepare variables for CM
+  # Check length
+  length(pred.log)
+  # Check contrasts
+  contrasts(Diabetes$class)
+  # Data input preparation
+  probs.log = rep("Negative", 104)
+  probs.log[pred.log >0.5] = "Positive"
+  probs.log = as.factor(probs.log)
+
+# Confusion matrix
+confusionMatrix(data=probs.log, reference = test$class)
+
 ```
-
-
 ### Decision Tree K-Fold CV (K=20)
 ```{r}
 # Decision Tree
-tree.fit = tree(class~., data=train)
-plot(tree.fit)
-text(tree.fit, pretty=0, cex=0.5)
+cv.tree = train(class ~ ., 
+                  data=train, 
+                  method="rpart", 
+                  trControl = train_control)
 
-# Apply CV
-cv.tree <- cv.tree(tree.fit, K=20, FUN=prune.misclass)
-cv.tree
+# cv.tree (check VarImp)
 
-# Index of tree with minimum error
-min.idx <- which.min(cv.tree$dev)
-min.idx
-# Number of leaves in that tree
-leaves <- cv.tree$size[min.idx]
-leaves
-# Count of misclassifications 
-miss.count <- cv.tree$dev[min.idx]
-miss.count
-# Misclassification rate
-miss.rate <- cv.tree$dev[min.idx] / length(Diabetes)
-miss.rate
+# Results
+  mat.data <- c(
+    mean(cv.tree$results$cp),
+    mean(cv.tree$results$Accuracy),
+    mean(cv.tree$results$AccuracySD),
+    mean(cv.tree$results$Kappa),
+    mean(cv.tree$results$KappaSD)
+  )
+  ?matrix
+  mat <- matrix(mat.data,byrow=FALSE)
+  columns <-c("cp","Accuracy", "AccuracySD", "Kappa", "KappaSD")
+  dimnames(mat) <- list(columns, "metrics")
+  mat
 
-# Confusion matrix ?
+# Performance
+mod.tree = tree(class~., data=train)
+plot(mod.tree)
+text(mod.tree, pretty=0, cex=0.5)
 
-#Plot
-plot(cv.tree$size, cv.tree$dev, type="b")
+# Prediction for CM
+pred.tree = predict(mod.tree, newdata=test, type="class")
 
+# Confusion matrix
+confusionMatrix(data=pred.tree, reference = test$class)
 ```
 
 ### Random Forest K-Fold CV (K=20)
-Can deal with a large number of features and it helps to identify the important attributes
+RF: the "forest" it builds, is an ensemble of decision trees, usually trained with the “bagging” method. The general idea of the bagging method is that a combination of learning models increases the overall result. Instead of searching for the most important feature while splitting a node, it searches for the best feature among a random subset of features. This results in a wide diversity that generally results in a better model.
 ```{r}
 # Random Forest
-diab.forest <- randomForest(class~., data=train, nodesize = 25, ntree = 200)
+# CROSS VALIDATION
 
-# Prediction
-predict.forest <- predict(diab.forest, newdata = test)
+# Performance
+mod.forest <- randomForest(class~., data=train, nodesize = 25, ntree = 200)
+
+# Prediction for CM
+pred.forest <- predict(mod.forest, newdata=test)
 
 # Confusion matrix 
-table(test$class, predict.forest)
-
-?rfcv
-# K-fold CV
-cv.rf <- rfcv(train, train$class, cv.fold = 20, type = "classification", trees = 500, mtrysize = 10)
-
-# Error ?
-cv.rf$error.cv
+confusionMatrix(data=pred.forest, reference=test$class)
 ```
+
+### Naive Bayes Classifier K-Fold CV (K=20)
+NB: classification technique based on Bayes’ Theorem with an assumption of independence among predictors. In simple terms, a Naive Bayes classifier assumes that the presence of a particular feature in a class is unrelated to the presence of any other feature.  
+A limitation of Naive Bayes is the assumption of independent predictors. In real life, it is almost impossible that we get a set of predictors which are completely independent (Are diabetes symptoms independent from each other?)
+```{r}
+# Naive Bayes 
+# CROSS VALIDATION
+mod.nb <- naiveBayes(class~ ., data=train)
+ 
+# Predicting on test data'
+pred.nb <- predict(mod.nb, newdata=test)
+
+# Confusion matrix
+confusionMatrix(data=pred.nb, reference=test$class)
+```
+
 
 ## Best model: X
 ```{r}
-
-# Training with whole data ?
-
 # Want to analyze best predictors for model
 
 ```
