@@ -95,7 +95,7 @@ cv.tree = train(class ~ .,
     mean(cv.tree$results$Kappa),
     mean(cv.tree$results$KappaSD)
   )
-  ?matrix
+
   mat <- matrix(mat.data,byrow=FALSE)
   columns <-c("cp","Accuracy", "AccuracySD", "Kappa", "KappaSD")
   dimnames(mat) <- list(columns, "metrics")
@@ -135,6 +135,8 @@ A limitation of Naive Bayes is the assumption of independent predictors. In real
 ```{r}
 # Naive Bayes 
 # CROSS VALIDATION
+
+# Performance
 mod.nb <- naiveBayes(class~ ., data=train)
  
 # Predicting on test data'
