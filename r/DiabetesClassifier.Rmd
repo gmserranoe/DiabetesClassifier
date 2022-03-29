@@ -26,12 +26,19 @@ missing = is.na(Diabetes)
 ```{r}
 # Age Distribution
 histogram(Diabetes$Age, main="Histogram of Age Distribution", xlab="Age", ylab="Percentage")
+
+# Sex Distribution
+histogram(Diabetes$Sex, main="Histogram of Sex Distribution", xlab="Sex", ylab="Percentage")
   
-# Save as pdf
-pdf("Age-Distribution.pdf")
-png(file="Age-Distribution.png")
-histogram(Diabetes$Age, main="Histogram of Age Distribution", xlab="Age", ylab="Percentage")
-dev.off()
+# Save as png
+  # Age
+  png(file="Age-Distribution.png")
+  histogram(Diabetes$Age, main="Histogram of Age Distribution", xlab="Age", ylab="Percentage")
+  dev.off()
+  # Sex
+  png(file="Sex-Distribution.png")
+  histogram(Diabetes$Sex, main="Histogram of Sex Distribution", xlab="Sex", ylab="Percentage")
+  dev.off()
 ```
 
 ## Section I: Validation of classification models: Logistic Regression, Decision Tree, Random Forest, Naïve Bayes Classifier
