@@ -23,8 +23,18 @@ summary(Diabetes)
 missing = is.na(Diabetes) 
 ```
 
+```{r}
+# Age Distribution
+histogram(Diabetes$Age, main="Histogram of Age Distribution", xlab="Age", ylab="Percentage")
+  
+# Save as pdf
+pdf("Age-Distribution.pdf")
+png(file="Age-Distribution.png")
+histogram(Diabetes$Age, main="Histogram of Age Distribution", xlab="Age", ylab="Percentage")
+dev.off()
+```
 
-## Section I: Validation of classification models: Logistic Regression, Decision Tree, Random Forest
+## Section I: Validation of classification models: Logistic Regression, Decision Tree, Random Forest, Naïve Bayes Classifier
 ```{r}
 # Load libraries
 library(boot)
@@ -45,7 +55,7 @@ set.seed(821)
   # Creates the testing dataset excluding the row numbers mentioned in dt
   test <- Diabetes[-dt,] 
   
-# Train control
+# Train Control definition (method we are going to use for CV)
 train_control <- trainControl(method = "cv", number = 20)
 ```
 
@@ -54,11 +64,24 @@ train_control <- trainControl(method = "cv", number = 20)
 LR: a regression algorithm that predicts the value of a categorical variable. It finds the value of a variable that can only take two possible values (ex: pass or fail). Logistic regression finds the relationship between a categorical dependent variable and several independent variables. We can also state this as logistic regression finds the relationship between which class does a data object lies into and said object’s features. Not only does the algorithm find a class for an object, but it also gives justification and reasoning for that object to be in a specific class
 ```{r}
 # Logistic Regression
-cv.log <- train(class ~ ., data=train, trControl=train_control, method="glm", family=binomial())
+cv.log <- train(class ~ ., 
+                  data=train, 
+                  trControl=train_control, 
+                  method="glm", 
+                  family=binomial())
 
-# CV scores
 summary(cv.log)
 
+# Results
+cv.log$results
+  
+# Variable Importance
+var.log <-varImp(cv.log)
+var.log
+```
+
+### Logistic Regression Performance (fit)
+```{r}
 # Performance
 mod.log <- glm(class ~ ., data=train, family=binomial(link="logit"))
 pred.log <- predict(mod.log, newdata=test, type = "response")
@@ -73,34 +96,45 @@ pred.log <- predict(mod.log, newdata=test, type = "response")
   probs.log[pred.log >0.5] = "Positive"
   probs.log = as.factor(probs.log)
 
-# Confusion matrix
+# Confusion Matrix
 confusionMatrix(data=probs.log, reference = test$class)
-
 ```
+
 ### Decision Tree K-Fold CV (K=20)
 ```{r}
-# Decision Tree
+# Cross-Validation
 cv.tree = train(class ~ ., 
                   data=train, 
                   method="rpart", 
                   trControl = train_control)
 
-# cv.tree (check VarImp)
+# Results (optimal)
+cv.tree
 
-# Results
-  mat.data <- c(
-    mean(cv.tree$results$cp),
-    mean(cv.tree$results$Accuracy),
-    mean(cv.tree$results$AccuracySD),
-    mean(cv.tree$results$Kappa),
-    mean(cv.tree$results$KappaSD)
-  )
+# Plot
+plot(cv.tree)
 
-  mat <- matrix(mat.data,byrow=FALSE)
-  columns <-c("cp","Accuracy", "AccuracySD", "Kappa", "KappaSD")
-  dimnames(mat) <- list(columns, "metrics")
-  mat
+# Results (mean)
+mat.data <- c(
+  mean(cv.tree$results$cp),
+  mean(cv.tree$results$Accuracy),
+  mean(cv.tree$results$AccuracySD),
+  mean(cv.tree$results$Kappa),
+  mean(cv.tree$results$KappaSD)
+)
 
+mat <- matrix(mat.data,byrow=FALSE)
+columns <-c("Complexity Parameter","Accuracy", "AccuracySD", "Kappa", "KappaSD")
+dimnames(mat) <- list(columns, "metrics")
+mat
+  
+# Variable Importance
+var.tree <- varImp(cv.tree)
+var.tree
+```
+
+### Decision Tree Performance (fit)
+```{r}
 # Performance
 mod.tree = tree(class~., data=train)
 plot(mod.tree)
@@ -109,47 +143,78 @@ text(mod.tree, pretty=0, cex=0.5)
 # Prediction for CM
 pred.tree = predict(mod.tree, newdata=test, type="class")
 
-# Confusion matrix
+# Confusion Matrix
 confusionMatrix(data=pred.tree, reference = test$class)
 ```
 
 ### Random Forest K-Fold CV (K=20)
 RF: the "forest" it builds, is an ensemble of decision trees, usually trained with the “bagging” method. The general idea of the bagging method is that a combination of learning models increases the overall result. Instead of searching for the most important feature while splitting a node, it searches for the best feature among a random subset of features. This results in a wide diversity that generally results in a better model.
 ```{r}
-# Random Forest
-# CROSS VALIDATION
+# Cross-Validation
+cv.rf <-  train(class ~ ., 
+                  data=train, 
+                  method="rf", 
+                  trControl = train_control, tuneLength=15)
 
+# Results
+cv.rf
+
+# Plot
+plot(cv.rf)
+  
+# Variable Importance
+var.rf <- varImp(cv.rf)
+var.rf
+```
+
+### Random Forest Performance (fit)
+```{r}
 # Performance
 mod.forest <- randomForest(class~., data=train, nodesize = 25, ntree = 200)
 
 # Prediction for CM
 pred.forest <- predict(mod.forest, newdata=test)
 
-# Confusion matrix 
+# Confusion Matrix 
 confusionMatrix(data=pred.forest, reference=test$class)
 ```
 
-### Naive Bayes Classifier K-Fold CV (K=20)
+### Naïve Bayes Classifier K-Fold CV (K=20)
 NB: classification technique based on Bayes’ Theorem with an assumption of independence among predictors. In simple terms, a Naive Bayes classifier assumes that the presence of a particular feature in a class is unrelated to the presence of any other feature.  
 A limitation of Naive Bayes is the assumption of independent predictors. In real life, it is almost impossible that we get a set of predictors which are completely independent (Are diabetes symptoms independent from each other?)
 ```{r}
-# Naive Bayes 
-# CROSS VALIDATION
+# Cross-Validation
+cv.nb <-  train(class~ ., 
+                  data = train, 
+                  method = "naive_bayes", 
+                  )
 
+# Results
+cv.nb
+
+# Plot
+plot(cv.nb)
+
+# Variable Importance
+var.nb <- varImp(cv.nb)
+var.nb
+```
+
+### Naïve Bayes Classifier Performance (fit)
+```{r}
 # Performance
 mod.nb <- naiveBayes(class~ ., data=train)
  
-# Predicting on test data'
+# Prediction for CM
 pred.nb <- predict(mod.nb, newdata=test)
 
-# Confusion matrix
+# Confusion Matrix
 confusionMatrix(data=pred.nb, reference=test$class)
 ```
 
-
-## Best model: X
+## Best model: ?
 ```{r}
-# Want to analyze best predictors for model
+# Want to analyze best predictors for model (check varImp)
 
 ```
 
