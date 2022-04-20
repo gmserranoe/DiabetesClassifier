@@ -1,10 +1,23 @@
 ---
 title: "Diabetes Classifier"
 output: html_notebook
+date: April 20, 2022
 ---
+&nbsp;
 
-#### Link to repository: https://archive.ics.uci.edu/ml/datasets/Early+stage+diabetes+risk+prediction+dataset
+#### Link to repository: https://archive.ics.uci.edu/ml/datasets/Early+stage+diabetes+risk+prediction+dataset.
 
+```{r}
+# Load libraries
+library(boot)
+library(caret)
+library(tree)
+library(randomForest)
+library(e1071)
+library(rpart)
+```
+
+## Section I: Loading the data
 ```{r}
 # Load the dataset "diabetes_data_upload.csv"
 Diabetes <- read.csv("~/Documents/github.git/DiabetesClassifier/data/diabetes_data_upload.csv", stringsAsFactors=TRUE)
@@ -23,6 +36,7 @@ summary(Diabetes)
 missing = is.na(Diabetes) 
 ```
 
+## Section II: Data Distribution / Visualization
 ```{r}
 # Age Distribution
 histogram(Diabetes$Age, main="Histogram of Age Distribution", xlab="Age", ylab="Percentage")
@@ -41,15 +55,8 @@ histogram(Diabetes$Sex, main="Histogram of Sex Distribution", xlab="Sex", ylab="
   dev.off()
 ```
 
-## Section I: Validation of classification models: Logistic Regression, Decision Tree, Random Forest, Naïve Bayes Classifier
+## Section III: Data Preparation
 ```{r}
-# Load libraries
-library(boot)
-library(caret)
-library(tree)
-library(randomForest)
-library(e1071)
-    
 # Set seed - generate same random numbers to reproduce results
 set.seed(821)  
 
@@ -66,6 +73,8 @@ set.seed(821)
 train_control <- trainControl(method = "cv", number = 20)
 ```
 
+
+## Section IV: Validation of classification models: Logistic Regression, Decision Tree, Random Forest, Naïve Bayes Classifier
 
 ### Logistic Regression K-Fold CV (K=20)
 LR: a regression algorithm that predicts the value of a categorical variable. It finds the value of a variable that can only take two possible values (ex: pass or fail). Logistic regression finds the relationship between a categorical dependent variable and several independent variables. We can also state this as logistic regression finds the relationship between which class does a data object lies into and said object’s features. Not only does the algorithm find a class for an object, but it also gives justification and reasoning for that object to be in a specific class
@@ -104,7 +113,7 @@ pred.log <- predict(mod.log, newdata=test, type = "response")
   probs.log = as.factor(probs.log)
 
 # Confusion Matrix
-confusionMatrix(data=probs.log, reference = test$class)
+confusionMatrix(data=probs.log, mode="everything", reference = test$class)
 ```
 
 ### Decision Tree K-Fold CV (K=20)
@@ -151,7 +160,7 @@ text(mod.tree, pretty=0, cex=0.5)
 pred.tree = predict(mod.tree, newdata=test, type="class")
 
 # Confusion Matrix
-confusionMatrix(data=pred.tree, reference = test$class)
+confusionMatrix(data=pred.tree, mode="everything", reference = test$class)
 ```
 
 ### Random Forest K-Fold CV (K=20)
@@ -177,13 +186,13 @@ var.rf
 ### Random Forest Performance (fit)
 ```{r}
 # Performance
-mod.forest <- randomForest(class~., data=train, nodesize = 25, ntree = 200)
+mod.forest <- randomForest(class~., data=train, mtry=9) # ntree=500, nrnodes=77 
 
 # Prediction for CM
 pred.forest <- predict(mod.forest, newdata=test)
 
 # Confusion Matrix 
-confusionMatrix(data=pred.forest, reference=test$class)
+confusionMatrix(data=pred.forest, mode="everything", reference=test$class)
 ```
 
 ### Naïve Bayes Classifier K-Fold CV (K=20)
@@ -210,18 +219,36 @@ var.nb
 ### Naïve Bayes Classifier Performance (fit)
 ```{r}
 # Performance
-mod.nb <- naiveBayes(class~ ., data=train)
+mod.nb <- naiveBayes(class~ ., data=train, laplace=0, usekernel=FALSE, adjust=1)
  
 # Prediction for CM
 pred.nb <- predict(mod.nb, newdata=test)
 
 # Confusion Matrix
-confusionMatrix(data=pred.nb, reference=test$class)
+confusionMatrix(data=pred.nb, mode="everything", reference=test$class)
 ```
 
-## Best model: ?
+## Section V: Analyze Variable Importance (first six)
 ```{r}
 # Want to analyze best predictors for model (check varImp)
+varOrder.log = var.log$importance[order(var.log$importance$Overall, decreasing=T), , drop=F]
+varOrder.tree = var.tree$importance[order(var.tree$importance$Overall, decreasing=T), , drop=F]
+varOrder.rf = var.rf$importance[order(var.rf$importance$Overall, decreasing=T), , drop=F]
+varOrder.nb = var.nb$importance[order(var.nb$importance$Positive, decreasing=T), , drop=F]
+
+head.log <- head(varOrder.log, 6)
+head.tree <- head(varOrder.tree, 6)
+head.rf <- head(varOrder.rf, 6)
+head.nb <- data.frame(head(varOrder.nb$Positive, 6), row.names =c("Polyuria","Polydipsia","Sudden.weightloss", "Sex", "Partial.paresis", "Polyphagia")) # Needs 6 names
+
+colnames(head.nb) <- c("Overall")
+
+# View
+par(mfrow=c(1,4))
+head.log
+head.tree
+head.rf
+head.nb
 
 ```
 
