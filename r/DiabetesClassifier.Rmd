@@ -1,11 +1,17 @@
 ---
-title: "Diabetes Classifier"
+title: "Symptom Significance in Diabetes Diagnosis"
+author: "Gabriela Serrano and JuanCarlos Jimenez"
 output: html_notebook
-date: April 20, 2022
+date: April 30, 2022
 ---
 &nbsp;
 
-#### Link to repository: https://archive.ics.uci.edu/ml/datasets/Early+stage+diabetes+risk+prediction+dataset.
+
+This is the R programming language script for the final project "Symptom Significance in Diabetes Diagnosis". The project consists of applying a variety of techniques (such as cross-validation, hyperparameter tuning) and binary classification models to a UCL Machine Learning Repository diabetes dataset in order to predict whether a patient has or not the condition based on a set of symptoms. 
+&nbsp;
+
+The project will be submitted in fulfillment of the requirements of CSC 597 (Introduction to Statistical Learning with Applications in R) at the University of Miami. 
+
 
 ```{r}
 # Load libraries
@@ -32,26 +38,25 @@ dim(Diabetes)
 summary(Diabetes)
 
 # Have to check for N/A values (missing = FALSE in all instances)
-# (Note: in the report they state that they removed 20 instances from 500, we have all 520)
 missing = is.na(Diabetes) 
 ```
 
 ## Section II: Data Distribution / Visualization
 ```{r}
 # Age Distribution
-histogram(Diabetes$Age, main="Histogram of Age Distribution", xlab="Age", ylab="Percentage")
+histogram(Diabetes$Age, main="Histogram of Age Distribution", xlab="Age", ylab="Percentage", col="grey")
 
 # Sex Distribution
-histogram(Diabetes$Sex, main="Histogram of Sex Distribution", xlab="Sex", ylab="Percentage")
+histogram(Diabetes$Sex, main="Histogram of Sex Distribution", xlab="Sex", ylab="Percentage", col="grey")
   
 # Save as png
   # Age
   png(file="Age-Distribution.png")
-  histogram(Diabetes$Age, main="Histogram of Age Distribution", xlab="Age", ylab="Percentage")
+  histogram(Diabetes$Age, main="Histogram of Age Distribution", xlab="Age", ylab="Percentage", col="grey")
   dev.off()
   # Sex
   png(file="Sex-Distribution.png")
-  histogram(Diabetes$Sex, main="Histogram of Sex Distribution", xlab="Sex", ylab="Percentage")
+  histogram(Diabetes$Sex, main="Histogram of Sex Distribution", xlab="Sex", ylab="Percentage", col="grey")
   dev.off()
 ```
 
@@ -77,7 +82,6 @@ train_control <- trainControl(method = "cv", number = 20)
 ## Section IV: Validation of classification models: Logistic Regression, Decision Tree, Random Forest, Naïve Bayes Classifier
 
 ### Logistic Regression K-Fold CV (K=20)
-LR: a regression algorithm that predicts the value of a categorical variable. It finds the value of a variable that can only take two possible values (ex: pass or fail). Logistic regression finds the relationship between a categorical dependent variable and several independent variables. We can also state this as logistic regression finds the relationship between which class does a data object lies into and said object’s features. Not only does the algorithm find a class for an object, but it also gives justification and reasoning for that object to be in a specific class
 ```{r}
 # Logistic Regression
 cv.log <- train(class ~ ., 
@@ -164,7 +168,6 @@ confusionMatrix(data=pred.tree, mode="everything", reference = test$class)
 ```
 
 ### Random Forest K-Fold CV (K=20)
-RF: the "forest" it builds, is an ensemble of decision trees, usually trained with the “bagging” method. The general idea of the bagging method is that a combination of learning models increases the overall result. Instead of searching for the most important feature while splitting a node, it searches for the best feature among a random subset of features. This results in a wide diversity that generally results in a better model.
 ```{r}
 # Cross-Validation
 cv.rf <-  train(class ~ ., 
@@ -182,8 +185,19 @@ plot(cv.rf)
 var.rf <- varImp(cv.rf)
 var.rf
 ```
+### Random Forest Performance (default fit)
+```{r}
+reg.mod.forest <- randomForest(class~., data=train) 
 
-### Random Forest Performance (fit)
+# Prediction for CM
+reg.pred.forest <- predict(reg.mod.forest, newdata=test)
+
+# Confusion Matrix 
+confusionMatrix(data=reg.pred.forest, mode="everything", reference=test$class)
+```
+
+
+### Random Forest Performance (optimized fit)
 ```{r}
 # Performance
 mod.forest <- randomForest(class~., data=train, mtry=9) # ntree=500, nrnodes=77 
@@ -196,8 +210,6 @@ confusionMatrix(data=pred.forest, mode="everything", reference=test$class)
 ```
 
 ### Naïve Bayes Classifier K-Fold CV (K=20)
-NB: classification technique based on Bayes’ Theorem with an assumption of independence among predictors. In simple terms, a Naive Bayes classifier assumes that the presence of a particular feature in a class is unrelated to the presence of any other feature.  
-A limitation of Naive Bayes is the assumption of independent predictors. In real life, it is almost impossible that we get a set of predictors which are completely independent (Are diabetes symptoms independent from each other?)
 ```{r}
 # Cross-Validation
 cv.nb <-  train(class~ ., 
@@ -216,7 +228,19 @@ var.nb <- varImp(cv.nb)
 var.nb
 ```
 
-### Naïve Bayes Classifier Performance (fit)
+### Naïve Bayes Classifier Performance (default fit)
+```{r}
+reg.mod.nb <- naiveBayes(class~ ., data=train)
+ 
+# Prediction for CM
+reg.pred.nb <- predict(reg.mod.nb, newdata=test)
+
+# Confusion Matrix
+confusionMatrix(data=reg.pred.nb, mode="everything", reference=test$class)
+```
+
+
+### Naïve Bayes Classifier Performance (optimized fit)
 ```{r}
 # Performance
 mod.nb <- naiveBayes(class~ ., data=train, laplace=0, usekernel=FALSE, adjust=1)
@@ -228,7 +252,7 @@ pred.nb <- predict(mod.nb, newdata=test)
 confusionMatrix(data=pred.nb, mode="everything", reference=test$class)
 ```
 
-## Section V: Analyze Variable Importance (first six)
+## Section V: Analyze Variable Importance (top six)
 ```{r}
 # Want to analyze best predictors for model (check varImp)
 varOrder.log = var.log$importance[order(var.log$importance$Overall, decreasing=T), , drop=F]
@@ -239,7 +263,7 @@ varOrder.nb = var.nb$importance[order(var.nb$importance$Positive, decreasing=T),
 head.log <- head(varOrder.log, 6)
 head.tree <- head(varOrder.tree, 6)
 head.rf <- head(varOrder.rf, 6)
-head.nb <- data.frame(head(varOrder.nb$Positive, 6), row.names =c("Polyuria","Polydipsia","Sudden.weightloss", "Sex", "Partial.paresis", "Polyphagia")) # Needs 6 names
+head.nb <- data.frame(head(varOrder.nb$Positive, 6), row.names =c("Polyuria","Polydipsia","Sudden.weightloss", "Sex", "Partial.paresis", "Polyphagia"))
 
 colnames(head.nb) <- c("Overall")
 
